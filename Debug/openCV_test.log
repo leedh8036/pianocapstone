@@ -1,4 +1,4 @@
-﻿빌드 시작: 2017-03-06 오후 10:04:22
+﻿빌드 시작: 2017-03-07 오후 3:56:22
      1>2 노드의 "C:\Users\leedh_000\Desktop\솔루션\openCV_test\openCV_test\openCV_test.vcxproj" 프로젝트(Build 대상)입니다.
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /IC:\opencv2413\build\include /IC:\opencv2413\build\include\opencv /IC:\opencv2413\build\include\opencv2 /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _LIB /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt cv_test.cpp
@@ -13,4 +13,4 @@
 
 빌드했습니다.
 
-경과 시간: 00:00:02.05
+경과 시간: 00:00:02.27
