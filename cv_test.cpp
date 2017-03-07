@@ -1,6 +1,6 @@
 ﻿#include <iostream>
-#include "cv.h"
-#include "highgui.h"
+#include "opencv/cv.h"
+#include "opencv/highgui.h"
 
 using namespace std;
 using namespace cv;
@@ -15,6 +15,7 @@ Mat toBinary(Mat template_img) //이미지를 불러오고 gray화 -> 이진화 
 
 	Mat binary_note;
 	adaptiveThreshold(~gray_note, binary_note, 255, CV_ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 15, -10);
+
 	imshow("toBinary grayimage", binary_note); // 이진화 확인용
 	return binary_note;
 }
@@ -71,7 +72,7 @@ int(*findHighNote(Mat delete_5line, Mat binary_high_note))[4] // 높은음자리
 			//putText(vertical_ref, to_string(count), Point(maxloc.x + 20, maxloc.y + 20), FONT_HERSHEY_SIMPLEX, 1, Scalar(255), 2);
 			//putText : 라벨링한거에 번호 매기는것
 
-			floodFill(img_result, maxloc, Scalar(0), 0, Scalar(.1), Scalar(1.));
+			floodFill(img_result, maxloc, Scalar(0), 0, Scalar(.1), Scalar(1.));  //네모칸을 오선제거한 곳에 얹는 것
 
 
 
@@ -95,58 +96,64 @@ int(*findHighNote(Mat delete_5line, Mat binary_high_note))[4] // 높은음자리
 	return recordHighNote; // 높은 음자리표 위치 및 RGB값 리턴
 }
 
-Mat findNote(Mat delete_5line, Mat binary_note, int(*recordHighNote)[4],double noteThresHold) //오선제거된 악보와 , 템플릿매칭할 음표 , 높은 음자리표 좌표를 기준으로 마디 단위로 음표 찾기
+Mat findNote(Mat delete_5line, Mat binary_note, int(*recordHighNote)[4]) //오선제거된 악보와 , 템플릿매칭할 음표 , 높은 음자리표 좌표를 기준으로 마디 단위로 음표 찾기
 {
 	Mat img_result(delete_5line.rows - binary_note.rows + 1, delete_5line.cols - binary_note.cols + 1, CV_32FC1);
 	//imshow("find note - delete_5line", delete_5line); //매칭 확인용
 	//imshow("find note - binary_note", binary_note); //매칭 확인용
 	//imshow("find note - img_result", img_result);
 
-	matchTemplate(delete_5line, binary_note, img_result, CV_TM_CCOEFF_NORMED);
+	Mat binary_note_2 = binary_note.clone();  //회전된 음표 만들기 위해 복사
+	Mat r_binary_note;  //회전된 음표
+	Size template_img_sz = binary_note.size();   //사이즈 받아옴 
+	resize(binary_note, binary_note_2, Size(template_img_sz.width, template_img_sz.height));
+	flip(binary_note, r_binary_note, -1);  //180도 회전
+	//imshow("r_binary_note",r_binary_note); //회전 확인용
+	Mat TowBinaryNote[2] = { binary_note, r_binary_note };   //기존 음표, 회전된 음표 -> 배열에 저장
 
-	
+	for (int i = 0; i<2; i++){ //기존음표와 회전된 음표 템플릿 매칭
+		matchTemplate(delete_5line, TowBinaryNote[i], img_result, CV_TM_CCOEFF_NORMED);
+		threshold(img_result, img_result, 0.75, 1., CV_THRESH_TOZERO); // 상관계수가 0.75 이상인 곳
 
-	threshold(img_result, img_result, noteThresHold, 1., CV_THRESH_TOZERO); // 상관계수가 0.75 이상인 곳
 
 
-
-	int rgbColor = 255; //초기 색 RGB값
-	while (true)
-	{
-		double minval, maxval, threshold = 0.01;
-		Point minloc, maxloc;
-		minMaxLoc(img_result, &minval, &maxval, &minloc, &maxloc);
-
-		if (maxval >= threshold) // 찾고자 하는 음표로 유추되는 이미지의 maxval값이 임계점보다 크다면 
+		int rgbColor = 255; //초기 색 RGB값
+		while (true)
 		{
-			if (maxloc.y + 10 > recordHighNote[0][2] - 10) //첫번째 높은음자리표 구간이면
+			double minval, maxval, threshold = 0.01;
+			Point minloc, maxloc;
+			minMaxLoc(img_result, &minval, &maxval, &minloc, &maxloc);
+
+			if (maxval >= threshold) // 찾고자 하는 음표로 유추되는 이미지의 maxval값이 임계점보다 크다면 
 			{
-				rgbColor = recordHighNote[0][3]; //첫번째 높은음자리표의 RGB값을
+				if (maxloc.y + 10 > recordHighNote[0][2] - 10) //첫번째 높은음자리표 구간이면
+				{
+					rgbColor = recordHighNote[0][3]; //첫번째 높은음자리표의 RGB값을
+				}
+				if (maxloc.y + 10 > recordHighNote[1][2] - 10) //두번째 높은음자리표 구간이면
+				{
+					rgbColor = recordHighNote[1][3];//두번째 높은음자리표 구간이면
+				}
+				if (maxloc.y + 10 > recordHighNote[2][2] - 10) //세번째 높은음자리표 구간이면
+				{
+					rgbColor = recordHighNote[2][3]; //세번째 높은음자리표 구간이면
+				}
+				rectangle(      // 사각형으로 라벨링을 한다.
+					delete_5line,
+					maxloc,
+					Point(maxloc.x + binary_note.cols, maxloc.y + binary_note.rows),
+					CV_RGB(rgbColor, rgbColor, rgbColor), 2
+
+					);
+
+				floodFill(img_result, maxloc, Scalar(0), 0, Scalar(.1), Scalar(1.));
+
+
 			}
-			if (maxloc.y + 10 > recordHighNote[1][2] - 10) //두번째 높은음자리표 구간이면
-			{
-				rgbColor = recordHighNote[1][3];//두번째 높은음자리표 구간이면
-			}
-			if (maxloc.y + 10 > recordHighNote[2][2] - 10) //세번째 높은음자리표 구간이면
-			{
-				rgbColor = recordHighNote[2][3]; //세번째 높은음자리표 구간이면
-			}
-			rectangle(      // 사각형으로 라벨링을 한다.
-				delete_5line,
-				maxloc,
-				Point(maxloc.x + binary_note.cols, maxloc.y + binary_note.rows),
-				CV_RGB(rgbColor, rgbColor, rgbColor), 2
-
-				);
-
-			floodFill(img_result, maxloc, Scalar(0), 0, Scalar(.1), Scalar(1.));
-
-
+			else
+				break;
 		}
-		else
-			break;
 	}
-
 	imshow("find note", delete_5line); //오선제거 확인용
 	return delete_5line;
 
@@ -172,10 +179,9 @@ int main()
 	int(*positionHighNote)[4] = findHighNote(delete_5line, binary_high_note);
 
 	//오선 삭제된 악보와 찾고자하는 템플릿 음표와 높은음자리표의 좌표를 이용해 음표를 찾는다.
-	Mat find_4note = findNote(delete_5line, binary_4note, positionHighNote,0.75);
-	Mat find_8note = findNote(find_4note, binary_8note, positionHighNote,0.75);
-	Mat find_2note = findNote(find_8note, binary_2note, positionHighNote,0.51);
-
+	Mat find_4note = findNote(delete_5line, binary_4note, positionHighNote);
+	Mat find_8note = findNote(find_4note, binary_8note, positionHighNote);
+	Mat find_2note = findNote(find_8note, binary_2note, positionHighNote);
 
 	waitKey(0);
 
